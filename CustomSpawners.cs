@@ -40,7 +40,6 @@ namespace CustomSpawners
 
         public static void AddClonedItems()
         {
-            Debug.LogError("xoxota");
             try
             {
                 foreach (SpawnAreaConfig areaConfig in root.spawnAreaConfigList)
