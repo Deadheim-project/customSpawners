@@ -69,12 +69,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="JotunnLib">
-      <Version>2.3.9</Version>
-    </PackageReference>
+    <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
   <ItemGroup>
-    <WCFMetadata Include="Connected Services\" />
+    <PackageReference Include="JotunnLib">
+      <Version>2.4.9</Version>
+    </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

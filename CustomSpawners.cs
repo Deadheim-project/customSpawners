@@ -1,16 +1,15 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
-using Jotunn.Managers;
 using System.Linq;
 using System.IO;
 using UnityEngine;
+using Jotunn.Managers;
 using System.Collections.Generic;
-using Object = UnityEngine.Object;
 
 namespace CustomSpawners
 {
-    [BepInPlugin("Detalhes.CustomSpawners", "CustomSpawners", "1.0.0")]
+    [BepInPlugin("Detalhes.CustomSpawners", "CustomSpawners", "1.0.1")]
     public class CustomSpawners : BaseUnityPlugin
     {
         public const string PluginGUID = "Detalhes.CustomSpawners";
@@ -19,30 +18,36 @@ namespace CustomSpawners
         public static bool hasSpawned = false;
         public static readonly string ModPath = Path.GetDirectoryName(typeof(CustomSpawners).Assembly.Location);
 
-        public static ConfigEntry<string> SpawnAreaConfigList;
+        public static ConfigEntry<string> SpawnAreaConfigList;     
 
 
         private void Awake()
         {
-
             SpawnAreaConfigList = Config.Bind("Server config", "SpawnAreaConfigList", "prefabToCopy=stone_wall_1x1;m_spawnTimer=30;m_onGroundOnly=false;m_maxTotal=10;m_maxNear=3;m_farRadius=30;m_spawnRadius=10;m_setPatrolSpawnPoint=false;m_triggerDistance=10;m_spawnIntervalSec=10;m_levelupChance=10;m_prefabName=Boar,Neck,Deer;m_nearRadius=10; | prefabToCopy=woodiron_beam;m_spawnTimer=30;m_onGroundOnly=false;m_maxTotal=10;m_maxNear=3;m_farRadius=30;m_spawnRadius=10;m_setPatrolSpawnPoint=false;m_triggerDistance=10;m_spawnIntervalSec=10;m_levelupChance=10;m_prefabName=Greydwarf;m_nearRadius=10;",
                     new ConfigDescription("SpawnAreaConfigList", null,
                     new ConfigurationManagerAttributes { IsAdminOnly = true }));
             harmony.PatchAll();
+        }
 
-            SynchronizationManager.OnConfigurationSynchronized += (obj, attr) =>
+        public static bool hasAwake = false;
+        [HarmonyPatch(typeof(Game), "Logout")]
+        public static class Logout
+        {
+            private static void Postfix()
             {
-                if (attr.InitialSynchronization)
-                {
-                    Jotunn.Logger.LogMessage("Initial Config sync event received");
-                    AddClonedItems();
-                }
-                else
-                {
-                    Jotunn.Logger.LogMessage("Config sync event received");
-                    AddClonedItems();
-                }
-            };
+                hasAwake = false;
+            }
+        }
+
+        [HarmonyPatch(typeof(Player), "OnSpawned")]
+        public static class OnSpawned
+        {
+            private static void Postfix()
+            {
+                if (hasAwake == true) return;
+                hasAwake = true;
+                AddClonedItems();
+            }
         }
 
         public static void AddClonedItems()
@@ -68,16 +73,14 @@ namespace CustomSpawners
                 GameObject customSpawner = PrefabManager.Instance.CreateClonedPrefab(newName, areaConfig.name);
                 if (customSpawner == null)
                 {
-                    Debug.LogError("nao achei porrra");
+                    Debug.LogError("original prefab not found for " + areaConfig.name);
                     continue;
                 }
 
                 customSpawner.GetComponent<ZNetView>().m_syncInitialScale = true;
 
                 SpawnArea area = customSpawner.AddComponent<SpawnArea>();
-
-                Piece piece = customSpawner.GetComponent<Piece>();
-                if(!piece) customSpawner.AddComponent<Piece>();
+                Piece piece = Object.Instantiate(PrefabManager.Instance.GetPrefab("woodwall").GetComponent<Piece>());
 
                 piece.m_description = "Spawner ";
                 piece.name = customSpawner.name;
@@ -111,13 +114,19 @@ namespace CustomSpawners
                     area.m_prefabs.Add(newArea);
                 }
 
-                PieceManager.Instance.RegisterPieceInPieceTable(customSpawner, "Hammer", "Custom Spawner");
+                PieceManager.Instance.RegisterPieceInPieceTable(customSpawner, "Hammer", "Custom Spawners");
 
                 if (!SynchronizationManager.Instance.PlayerIsAdmin)
                 {
                     table.m_pieces.Remove(customSpawner);
                 }
             }
+        }
+
+        [HarmonyPatch(typeof(SpawnArea), "UpdateSpawn")]
+        public class UpdateSpawn
+        {
+            public static bool Prefix(SpawnArea __instance) => __instance.m_nview;
         }
     }
 }
