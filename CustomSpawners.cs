@@ -6,26 +6,46 @@ using System.IO;
 using UnityEngine;
 using Jotunn.Managers;
 using System.Collections.Generic;
+using Jotunn.Utils;
 
 namespace CustomSpawners
 {
-    [BepInPlugin("Detalhes.CustomSpawners", "CustomSpawners", "1.0.1")]
+    [BepInPlugin(PluginGUID, PluginGUID, Version)]
+    [BepInDependency(Jotunn.Main.ModGuid)]
+    [NetworkCompatibility(CompatibilityLevel.EveryoneMustHaveMod, VersionStrictness.Minor)]
     public class CustomSpawners : BaseUnityPlugin
     {
         public const string PluginGUID = "Detalhes.CustomSpawners";
+        public const string Version = "1.0.5";
         Harmony harmony = new Harmony(PluginGUID);
-        static Root root = new Root();
+        public static JsonLoader root = new JsonLoader();
         public static bool hasSpawned = false;
         public static readonly string ModPath = Path.GetDirectoryName(typeof(CustomSpawners).Assembly.Location);
 
-        public static ConfigEntry<string> SpawnAreaConfigList;     
+        public static ConfigEntry<bool> IsSinglePlayer;
 
+        public static string FileDirectory = BepInEx.Paths.ConfigPath + @"/Detalhes.CustomSpawners.json";
 
         private void Awake()
         {
-            SpawnAreaConfigList = Config.Bind("Server config", "SpawnAreaConfigList", "prefabToCopy=stone_wall_1x1;m_spawnTimer=30;m_onGroundOnly=false;m_maxTotal=10;m_maxNear=3;m_farRadius=30;m_spawnRadius=10;m_setPatrolSpawnPoint=false;m_triggerDistance=10;m_spawnIntervalSec=10;m_levelupChance=10;m_prefabName=Boar,Neck,Deer;m_nearRadius=10; | prefabToCopy=woodiron_beam;m_spawnTimer=30;m_onGroundOnly=false;m_maxTotal=10;m_maxNear=3;m_farRadius=30;m_spawnRadius=10;m_setPatrolSpawnPoint=false;m_triggerDistance=10;m_spawnIntervalSec=10;m_levelupChance=10;m_prefabName=Greydwarf;m_nearRadius=10;",
+            Config.SaveOnConfigSet = true;
+
+            IsSinglePlayer = Config.Bind("Server config", "SpawnAreaConfigList", false,
                     new ConfigDescription("SpawnAreaConfigList", null,
                     new ConfigurationManagerAttributes { IsAdminOnly = true }));
+
+            SynchronizationManager.OnConfigurationSynchronized += (obj, attr) =>
+            {
+                if (attr.InitialSynchronization)
+                {
+                    Jotunn.Logger.LogMessage("Config sync event received");
+                }
+                else
+                {
+                    Jotunn.Logger.LogMessage("Config sync event received");
+                }
+            };
+
             harmony.PatchAll();
         }
 
@@ -46,11 +66,14 @@ namespace CustomSpawners
             {
                 if (hasAwake == true) return;
                 hasAwake = true;
-                AddClonedItems();
+
+                if (IsSinglePlayer.Value) AddClonedItems(root.GetSpawnAreaConfigs());
+                else                
+                    ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.instance.GetServerPeerID(), "FileSync", new ZPackage());                
             }
         }
 
-        public static void AddClonedItems()
+        public static void AddClonedItems(List<Spawner> list)
         {
             var hammer = ObjectDB.instance.m_items.FirstOrDefault(x => x.name == "Hammer");
 
@@ -59,30 +82,30 @@ namespace CustomSpawners
                 Debug.LogError("Custom Spawners - Hammer could not be loaded"); return;
             }
 
-            PieceTable table = hammer.GetComponent<ItemDrop>().m_itemData.m_shared.m_buildPieces;
+            PieceTable table = hammer.GetComponent<ItemDrop>().m_itemData.m_shared.m_buildPieces;     
 
-            var list = root.GetSpawnAreaConfigs();
-            foreach (SpawnAreaConfig areaConfig in list)
+            foreach (Spawner areaConfig in list)
             {
-                string newName = "CS_" + string.Join("_", areaConfig.m_prefabName);
+                string newName = "CS_" + string.Join("_", areaConfig.name);
 
                 if (table.m_pieces.Exists(x => x.name == newName))
                 {
                     continue;
                 }
-                GameObject customSpawner = PrefabManager.Instance.CreateClonedPrefab(newName, areaConfig.name);
+                GameObject customSpawner = PrefabManager.Instance.CreateClonedPrefab(newName, areaConfig.prefabToCopy);
                 if (customSpawner == null)
                 {
-                    Debug.LogError("original prefab not found for " + areaConfig.name);
+                    Debug.LogError("original prefab not found for " + areaConfig.prefabToCopy);
                     continue;
                 }
 
                 customSpawner.GetComponent<ZNetView>().m_syncInitialScale = true;
 
                 SpawnArea area = customSpawner.AddComponent<SpawnArea>();
-                Piece piece = Object.Instantiate(PrefabManager.Instance.GetPrefab("woodwall").GetComponent<Piece>());
+                Piece piece = customSpawner.GetComponent<Piece>();
+                if (piece is null) piece = customSpawner.AddComponent<Piece>();
 
-                piece.m_description = "Spawner ";
+                piece.m_description = areaConfig.name + " ";
                 piece.name = customSpawner.name;
 
                 Object.Destroy(customSpawner.GetComponent<Destructible>());
@@ -101,12 +124,12 @@ namespace CustomSpawners
                 area.m_nearRadius = areaConfig.m_nearRadius;
                 area.m_prefabs = new List<SpawnArea.SpawnData>();
 
-                foreach (string prefab in areaConfig.m_prefabName)
+                foreach (string prefab in areaConfig.m_prefabName.Split(','))
                 {
                     var newArea = new SpawnArea.SpawnData();
-                    newArea.m_weight = 100 / areaConfig.m_prefabName.Count;
-                    newArea.m_minLevel = 1;
-                    newArea.m_maxLevel = 3;
+                    newArea.m_weight = 100 / areaConfig.m_prefabName.Split(',').Count();
+                    newArea.m_minLevel = areaConfig.minLevel;
+                    newArea.m_maxLevel = areaConfig.maxLevel;
                     newArea.m_prefab = PrefabManager.Instance.GetPrefab(prefab);
                     piece.m_description += prefab + " ";
                     if (newArea.m_prefab == null) continue;
