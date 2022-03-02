@@ -18,7 +18,6 @@ namespace CustomSpawners
         public List<Spawner> GetSpawnAreaConfigs(string json)
         {
             Root items = SimpleJson.SimpleJson.DeserializeObject<Root>(json);
-
             return items.spawners;
 
         }

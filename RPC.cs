@@ -30,7 +30,6 @@ namespace CustomSpawners
 		public static void RPC_FileSyncClient(long sender, ZPackage pkg)
 		{
 			string json = pkg.ReadString();
-			Debug.LogError(json);
 			CustomSpawners.AddClonedItems(new JsonLoader().GetSpawnAreaConfigs(json));
 		}
 

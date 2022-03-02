@@ -24,14 +24,14 @@ namespace CustomSpawners
 
         public static ConfigEntry<bool> IsSinglePlayer;
 
-        public static string FileDirectory = BepInEx.Paths.ConfigPath + @"/Detalhes.CustomSpawners.json";
+        public static string FileDirectory = BepInEx.Paths.ConfigPath + @"/Detalhes.CustomOferringBowls.json";
 
         private void Awake()
         {
             Config.SaveOnConfigSet = true;
 
-            IsSinglePlayer = Config.Bind("Server config", "SpawnAreaConfigList", false,
-                    new ConfigDescription("SpawnAreaConfigList", null,
+            IsSinglePlayer = Config.Bind("Server config", "IsSinglePlayer", false,
+                    new ConfigDescription("IsSinglePlayer", null,
                     new ConfigurationManagerAttributes { IsAdminOnly = true }));
 
             SynchronizationManager.OnConfigurationSynchronized += (obj, attr) =>
