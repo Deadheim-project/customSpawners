@@ -24,7 +24,7 @@ namespace CustomSpawners
 
         public static ConfigEntry<bool> IsSinglePlayer;
 
-        public static string FileDirectory = BepInEx.Paths.ConfigPath + @"/Detalhes.CustomOferringBowls.json";
+        public static string FileDirectory = BepInEx.Paths.ConfigPath + @"/Detalhes.CustomSpawners.json";
 
         private void Awake()
         {
@@ -108,7 +108,17 @@ namespace CustomSpawners
                 piece.m_description = areaConfig.name + " ";
                 piece.name = customSpawner.name;
 
-                Object.Destroy(customSpawner.GetComponent<Destructible>());
+                if (areaConfig.HitPoints > 0)
+                {
+                    Destructible destructible = customSpawner.GetComponent<Destructible>();
+                    if (destructible is null) destructible = customSpawner.AddComponent<Destructible>();
+                    destructible.m_health = areaConfig.HitPoints;
+
+                } else
+                {
+                    Object.Destroy(customSpawner.GetComponent<Destructible>());
+                }
+
                 Object.Destroy(customSpawner.GetComponent<WearNTear>());
 
                 area.m_spawnTimer = areaConfig.m_spawnTimer;

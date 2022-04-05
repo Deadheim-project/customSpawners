@@ -41,6 +41,7 @@ namespace CustomSpawners
         public int m_nearRadius { get; set; }
         public int minLevel { get; set; }
         public int maxLevel { get; set; }
+        public int HitPoints { get; set; }
     }
 
     public class Root
